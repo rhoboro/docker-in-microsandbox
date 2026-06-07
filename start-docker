@@ -3,7 +3,7 @@ set -eu
 
 DOCKER_SOCKET=/var/run/docker.sock
 
-if docker -H "unix://${DOCKER_SOCKET}" info >/dev/null 2>&1; then
+if timeout 2 docker -H "unix://${DOCKER_SOCKET}" info >/dev/null 2>&1; then
   echo "Docker is already running."
   exit 0
 fi
@@ -11,7 +11,14 @@ fi
 # 再起動後に古いソケットが残っている場合は削除
 rm -f "$DOCKER_SOCKET" /var/run/docker.pid
 
-dockerd --data-root=/tmp/docker >/tmp/dockerd.log 2>&1 &
+ROOT_FSTYPE=$(stat -f -c '%T' /)
+if [ "$ROOT_FSTYPE" = "overlayfs" ]; then
+  STORAGE_DRIVER="--storage-driver=vfs"
+else
+  STORAGE_DRIVER=""
+fi
+
+dockerd --data-root=/tmp/docker $STORAGE_DRIVER >/tmp/dockerd.log 2>&1 &
 
 printf "Starting Docker"
 i=0
