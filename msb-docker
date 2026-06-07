@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE="ghcr.io/rhoboro/docker-in-microsandbox:${DVM_COMPOSE_VERSION:-v5.1.4}-aarch64"
+MEMORY="${DVM_MEMORY:-4G}"
+TMPFS="${DVM_TMPFS_SIZE:-4G}"
+WORKDIR=/workspace
+
+die()   { echo "dvm: $*" >&2; exit 1; }
+usage() { echo "Usage: dvm <name> <dir> [--port H:G] [--memory M] [--tmpfs-size S] [--cpus N]"; }
+
+[ $# -ge 1 ] || { usage; exit 0; }
+case "$1" in -h|--help|help) usage; exit 0;; esac
+
+name=${1:?$(die "name required")}
+dir=${2:?$(die "dir required")}
+shift 2
+
+dir=$(cd "$dir" && pwd)
+[ -d "$dir" ] || die "not a directory: $dir"
+
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --memory)     MEMORY="$2";  shift 2 ;;
+    --tmpfs-size) TMPFS="$2";   shift 2 ;;
+    --cpus)       args+=(--cpus "$2"); shift 2 ;;
+    --port)       args+=(--port "$2"); shift 2 ;;
+    *)            die "unknown option: $1" ;;
+  esac
+done
+
+msb run \
+  --name "$name" --replace --detach \
+  --memory "$MEMORY" \
+  --tmpfs "/tmp:${TMPFS}" \
+  --volume "${dir}:${WORKDIR}" \
+  --workdir "$WORKDIR" \
+  "${args[@]+"${args[@]}"}" \
+  "$IMAGE"
+
+msb exec "$name" -- start-docker
+
+echo "msb exec ${name} -- docker run --rm hello-world"
