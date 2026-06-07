@@ -11,8 +11,8 @@ fi
 # 再起動後に古いソケットが残っている場合は削除
 rm -f "$DOCKER_SOCKET" /var/run/docker.pid
 
-ROOT_FSTYPE=$(stat -f -c '%T' /)
-if [ "$ROOT_FSTYPE" = "overlayfs" ]; then
+ROOT_FSTYPE=$(grep ' / ' /proc/mounts | awk '{print $3}')
+if [ "$ROOT_FSTYPE" = "overlay" ]; then
   STORAGE_DRIVER="--storage-driver=vfs"
 else
   STORAGE_DRIVER=""
